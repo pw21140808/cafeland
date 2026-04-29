@@ -1,0 +1,629 @@
+openapi: 3.0.4
+info:
+  title: Cafetería ITQ
+  description: API para la gestión de una cafetería.
+  version: 1.0.0
+  contact:
+    name: Equipo de desarrollo ITQ
+    email: yop@queretaro.tecnm.mx
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Servidor de desarrollo
+
+tags:
+  - name: menu
+    description: Gestión de productos y recetas
+  - name: inventory
+    description: Control de stock de insumos y proveedores
+  - name: sales
+    description: Procesamiento de pedidos y ventas
+
+paths:
+  /products:
+    get:
+      summary: Lista todos los productos
+      description: Obtiene la lista completa de cafés y postres disponibles.
+      operationId: listProducts
+      tags:
+        - menu
+      parameters:
+        - name: search
+          in: query
+          required: false
+          description: Filtrar productos por nombre
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de productos encontrada
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+                
+    post:
+      summary: Registra un nuevo producto
+      description: Crea un nuevo producto en el catálogo.
+      operationId: createProduct
+      tags:
+        - menu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '201':
+          description: Producto creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorInvalidInput:
+                  $ref: '#/components/examples/ApiErrorInvalidInput'
+        '409':
+          description: Conflicto - producto ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorConflict:
+                  $ref: '#/components/examples/ApiErrorConflict'
+
+  /products/{productId}:
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        description: ID del producto
+        schema:
+          type: string
+          pattern: '^prod-[0-9]+$'
+        example: "prod-12345"
+    get:
+      summary: Obtener producto por ID
+      description: Recupera los detalles de un producto específico.
+      operationId: getProductById
+      tags:
+        - menu
+      responses:
+        '200':
+          description: Producto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorNotFound:
+                  $ref: '#/components/examples/ApiErrorNotFound'
+    put:
+      summary: Actualizar producto completo
+      description: Reemplaza toda la información de un producto existente.
+      operationId: updateProduct
+      tags:
+        - menu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '200':
+          description: Producto actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorNotFound:
+                  $ref: '#/components/examples/ApiErrorNotFound'
+    delete:
+      summary: Borra un producto
+      operationId: deleteProduct
+      tags:
+        - menu
+      responses:
+        '200':
+          description: Producto eliminado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteConfirmation'
+        '404':
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorNotFound:
+                  $ref: '#/components/examples/ApiErrorNotFound'
+
+  /products/{productId}/recipe:
+    get:
+      summary: Obtener receta de producto
+      tags:
+        - menu
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Receta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/recipe'
+        '404':
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorNotFound:
+                  $ref: '#/components/examples/ApiErrorNotFound'
+
+  /supplies:
+    get:
+      summary: Consulta stock actual
+      tags: 
+        - inventory
+      responses:
+        '200':
+          description: Lista de stock obtenida
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/supply'
+    post:
+      summary: Crea un nuevo insumo
+      tags: 
+        - inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/supplyInput'
+      responses:
+        '201':
+          description: Insumo registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/supply'
+
+  /supplies/{supplyId}:
+    patch:
+      summary: Actualiza stock de insumo
+      tags: 
+        - inventory
+      parameters:
+        - name: supplyId
+          in: path
+          required: true
+          schema: 
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cantidad_variacion: 
+                  type: number
+                  example: -0.5
+      responses:
+        '200':
+          description: Stock actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/supply'
+        '404':
+          description: Insumo no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorNotFound:
+                  $ref: '#/components/examples/ApiErrorNotFound'
+
+  /suppliers:
+    get:
+      summary: Consulta lista de proveedores
+      tags: 
+        - inventory
+      responses:
+        '200':
+          description: Directorio obtenido
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/supplier'
+    post:
+      summary: Crea un nuevo proveedor
+      tags: 
+        - inventory
+      responses:
+        '201':
+          description: Proveedor registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/supplier'
+
+  /orders:
+    post:
+      summary: Crea una nueva orden de venta
+      tags: 
+        - sales
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/orderRequest'
+      responses:
+        '201':
+          description: Venta exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/orderResponse'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorInvalidInput:
+                  $ref: '#/components/examples/ApiErrorInvalidInput'
+
+  /orders/{orderId}:
+    parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema: 
+          type: integer
+    get:
+      summary: Consulta detalles de una venta
+      tags: 
+        - sales
+      responses:
+        '200':
+          description: Detalle encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/orderResponse'
+        '404':
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                apiErrorNotFound:
+                  $ref: '#/components/examples/ApiErrorNotFound'
+#/orders?view=daily-history
+  /orders/historial:
+    get:
+      summary: Lista todas las ventas del día
+      tags: 
+        - sales
+      responses:
+        '200':
+          description: Reporte histórico obtenido
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/orderResponse'
+
+components:
+  schemas:
+    Product:
+      type: object
+      required: 
+        - name
+        - price
+        - category
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: "Nombre comercial del producto"
+          example: "Café Americano"
+        description:
+          type: string
+          maxLength: 500
+          description: "Reseña técnica o comercial"
+          example: "Bebida elaborada con granos de altura"
+        price:
+          type: number
+          format: double
+          minimum: 0.01
+          description: "Precio unitario en MXN"
+          example: 35.00
+        category:
+          type: string
+          enum: ["Bebidas", "Alimentos", "Postres"]
+          description: "Categoría para clasificación y lógica de SKU"
+          example: "Bebidas"
+
+    ProductResponse:
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          required: 
+            - id
+            - sku
+            - createdAt
+            - inStock
+          properties:
+            id:
+              type: string
+              pattern: '^PROD-[0-9]+$'
+              description: "Identificador único generado por el sistema"
+              example: "PROD-84729"
+            sku:
+              type: string
+              description: "Stock Keeping Unit dinámico (Prefijo-Nombre-Random)"
+              example: "CAF-AME-22"
+            createdAt:
+              type: string
+              format: date-time
+              example: "2026-04-21T10:00:00Z"
+            inStock:
+              type: boolean
+              description: "Disponibilidad inmediata"
+              example: true
+
+    supply:
+      type: object
+      required: 
+      - supplyId
+      - supplyName
+      - stock
+      - unit
+      properties:
+        supplyId:
+          type: string
+          example: "INS-001"
+        supplyName:
+          type: string
+          example: "Grano de Café"
+        stock:
+          type: integer
+          minimum: 0
+          description: "Cantidad actual en bodega"
+          example: 15
+        unit:
+          type: string
+          enum: ["gr", "ml", "oz", "pza", "kg", "L"]
+          example: "kg"
+
+    supplyInput:
+      type: object
+      required: 
+        - supplyName
+        - currentStock
+        - unit
+      properties:
+        supplyName:
+          type: string
+          minLength: 2
+          example: "Grano de Café"
+        currentStock:
+          type: integer
+          minimum: 0
+          description: "Cantidad actual en bodega"
+          example: 15
+        unit:
+          type: string
+          enum: ["gr", "ml", "oz", "pza", "kg", "L"]
+          example: "kg"
+
+    supplier:
+      type: object
+      required: 
+        - companyName
+        - phone
+      properties:
+        supplierId:
+          type: string
+          example: "PROV-99"
+        companyName:
+          type: string
+          example: "Distribuidora El Grano"
+        phone:
+          type: string
+          pattern: '^[0-9]{10}$'
+          description: "Teléfono a 10 dígitos"
+          example: "4421112233"
+
+    orderRequest:
+      type: object
+      required:
+        - customer
+        - products
+      properties:
+        customer:
+          type: string
+          minLength: 2
+          example: "Daniel"
+        products:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ItemPedido'
+
+    ItemPedido:
+      type: object
+      required: 
+        - productId
+        - cantidad
+      properties:
+        productId:
+          type: string
+          example: "PROD-84729"
+        cantidad:
+          type: integer
+          minimum: 1
+          example: 2
+
+    orderResponse:
+      type: object
+      properties:
+        orderId:
+          type: integer
+          example: 500
+        total:
+          type: number
+          example: 70.00
+        message:
+          type: string
+          example: "Venta exitosa"
+        date:
+          type: string
+          format: date-time
+
+    recipe:
+      type: object
+      required: 
+        - productId
+        - items
+      properties:
+        productId:
+          type: string
+          example: "PROD-84729"
+        items:
+          type: array
+          items:
+            type: object
+            required: 
+              - supplyId
+              - quantityNeeded
+              - unit
+            properties:
+              supplyId:
+                type: string
+                example: "INS-001"
+              supplyName:
+                type: string
+                example: "Grano de Café"
+              quantityNeeded:
+                type: number
+                example: 18.0
+              unit:
+                type: string
+                example: "gr"
+
+    DeleteConfirmation:
+      type: object
+      required: 
+        - id
+        - message
+        - deletedAt
+      properties:
+        id:
+          type: string
+          example: "PROD-84729"
+        message:
+          type: string
+          example: "Producto eliminado exitosamente"
+        deletedAt:
+          type: string
+          format: date-time
+
+    ApiError:
+      type: object
+      required: 
+        - code
+        - message
+        - timestamp
+      properties:
+        code:
+          type: string
+          example: "INVALID_INPUT"
+        message:
+          type: string
+          example: "Error en los datos enviados"
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          example: "/api/v1/products"
+
+  examples:
+    ApiErrorInvalidInput:
+      value:
+        code: "INVALID_INPUT"
+        message: "Los datos enviados no cumplen con el esquema."
+        timestamp: "2024-01-15T10:30:00Z"
+        path: "/api/v1/productos"
+    ApiErrorNotFound:
+      value:
+        code: "RESOURCE_NOT_FOUND"
+        message: "El registro solicitado no existe."
+        timestamp: "2024-01-15T10:30:00Z"
+    ApiErrorConflict:
+      value:
+        code: "PRODUCT_EXISTS"
+        message: "Ya existe un registro con ese nombre."
+        timestamp: "2024-01-15T10:30:00Z"
+    ApiErrorInternal:
+      value:
+        code: "INTERNAL_ERROR"
+        message: "Ocurrió un error inesperado."
+        timestamp: "2024-01-15T10:30:00Z"
